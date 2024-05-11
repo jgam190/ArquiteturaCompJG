@@ -7,28 +7,27 @@
 .eqv index_sw $t2
 
 .data
-File: .asciiz "lista.txt"      # Arquivo para ler
-Fout: .asciiz "lista_out.txt"      # Arquivo de saída
+File: .asciiz "lista.txt"      # Arquivo para leitura
+Fout: .asciiz "lista_ordenada.txt"      # Arquivo de saída
 buffer: .space 500
         .align 2
 lista_numeros: .space 400
 n: .word 100
-str:   .space 128         # bytes for string version of the number
+str:   .space 128         # bytes para a versão string do número
 comma: .asciiz ","
 newline: .asciiz "\n"
 .text
 
-
 # Abrir e ler arquivo
-li   $v0, 13          # system call abrir arquivo
-la   $a0, File        # Nome do arquivo
+li   $v0, 13          # chamada de sistema para abrir arquivo
+la   $a0, File        # nome do arquivo
 li   $a1, 0           # flag de leitura
-li   $a2, 0           # Ignorar modo
+li   $a2, 0           # ignorar modo
 syscall
-move $s3, $v0         # Salvar file descriptor
+move $s3, $v0         # salvar descritor de arquivo
 
 # Ler números do arquivo
-li $v0, 14                      # syscall read
+li $v0, 14                      # chamada de sistema para leitura
 move $a0, $s3
 la $a1, buffer
 li $a2, 500
@@ -41,7 +40,7 @@ init:
     li  multiplicador, 1
     li  num, 0
 
-
+# Loop para ler cada caractere do buffer
 for:
 	lb	char, buffer(index)	
 	add	index, index, 1
@@ -53,6 +52,7 @@ for:
 	add	num, num, digit
 	j	for
 
+# Armazenar o número na memória
 armazena:
 	mul	num, num, multiplicador
 	sw	num, lista_numeros(index_sw)
@@ -60,6 +60,7 @@ armazena:
 	beq	char,$zero, exit 
 	j	init
 
+# Tratar sinal negativo
 sinal:
     li  multiplicador, -1
     j for
@@ -76,6 +77,7 @@ main:
     jal bubblesort
     j out
 
+# Algoritmo de ordenação Bubble Sort
 bubblesort:
     # Reservar espaço na pilha para salvar $ra e $a1
     addi $sp, $sp, -8
@@ -111,7 +113,7 @@ end_outer_loop:
     addi $sp, $sp, 8    # Liberar espaço na pilha
     jr $ra              # Retornar ao endereço de retorno
 
-
+# Escrever a lista ordenada no arquivo "lista_ordenada.txt"
 out:
 
     la $t0, lista_numeros                           # Carrega o endereço do array em $t0
@@ -163,63 +165,64 @@ end_loop:
 
     j exitInt       
 
+# Função para converter um número inteiro em uma string
 int2str:
-addi $sp, $sp, -4         # to avoid headaches save $t- registers used in this procedure on stack
-sw   $t0, ($sp)           # so the values don't change in the caller. We used only $t0 here, so save that.
-bltz $a0, neg_num         # is num < 0 ?
-j    next0                # else, goto 'next0'
+addi $sp, $sp, -4         # para evitar problemas, salve os registradores $t- usados neste procedimento na pilha
+sw   $t0, ($sp)           # para que os valores não mudem no chamador. Usamos apenas $t0 aqui, então salve isso.
+bltz $a0, neg_num         # o número é < 0 ?
+j    next0                # senão, vá para 'next0'
 
-neg_num:                  # body of "if num < 0:"
+neg_num:                  # corpo de "se num < 0:"
 li   $t0, '-'
-sb   $t0, ($a1)           # *str = ASCII of '-' 
+sb   $t0, ($a1)           # *str = ASCII de '-' 
 addi $a1, $a1, 1          # str++
 li   $t0, -1
 mul  $a0, $a0, $t0        # num *= -1
 
 next0:
 li   $t0, -1
-addi $sp, $sp, -4         # make space on stack
-sw   $t0, ($sp)           # and save -1 (end of stack marker) on MIPS stack
+addi $sp, $sp, -4         # faça espaço na pilha
+sw   $t0, ($sp)           # e salve -1 (marcador de fim de pilha) na pilha do MIPS
 
 push_digits:
-blez $a0, next1           # num < 0? If yes, end loop (goto 'next1')
-li   $t0, 10              # else, body of while loop here
-div  $a0, $t0             # do num / 10. LO = Quotient, HI = remainder
+blez $a0, next1           # num < 0? Se sim, encerre o loop (vá para
+li   $t0, 10              # caso contrário, corpo do loop while aqui
+div  $a0, $t0             # faça num / 10. LO = Quociente, HI = resto
 mfhi $t0                  # $t0 = num % 10
 mflo $a0                  # num = num // 10  
-addi $sp, $sp, -4         # make space on stack
-sw   $t0, ($sp)           # store num % 10 calculated above on it
-j    push_digits          # and loop
+addi $sp, $sp, -4         # faça espaço na pilha
+sw   $t0, ($sp)           # armazene num % 10 calculado acima na pilha
+j    push_digits          # e loop
 
 next1:
-lw   $t0, ($sp)           # $t0 = pop off "digit" from MIPS stack
-addi $sp, $sp, 4          # and 'restore' stack
+lw   $t0, ($sp)           # $t0 = retira "dígito" da pilha MIPS
+addi $sp, $sp, 4          # e 'restaura' pilha
 
-bltz $t0, neg_digit       # if digit <= 0, goto neg_digit (i.e, num = 0)
-j    pop_digits           # else goto popping in a loop
+bltz $t0, neg_digit       # se dígito <= 0, vá para neg_digit (ou seja, num = 0)
+j    pop_digits           # caso contrário, vá para popping em um loop
 
 neg_digit:
 li   $t0, '0'
-sb   $t0, ($a1)           # *str = ASCII of '0'
+sb   $t0, ($a1)           # *str = ASCII de '0'
 addi $a1, $a1, 1          # str++
-j    next2                # jump to next2
+j    next2                # pule para next2
 
 pop_digits:
-bltz $t0, next2           # if digit <= 0 goto next2 (end of loop)
-addi $t0, $t0, '0'        # else, $t0 = ASCII of digit
-sb   $t0, ($a1)           # *str = ASCII of digit
+bltz $t0, next2           # se dígito <= 0 vá para next2 (fim do loop)
+addi $t0, $t0, '0'        # caso contrário, $t0 = ASCII do dígito
+sb   $t0, ($a1)           # *str = ASCII do dígito
 addi $a1, $a1, 1          # str++
-lw   $t0, ($sp)           # digit = pop off from MIPS stack 
-addi $sp, $sp, 4          # restore stack
-j    pop_digits           # and loop
+lw   $t0, ($sp)           # dígito = retira da pilha MIPS
+addi $sp, $sp, 4          # restaura pilha
+j    pop_digits           # e loop
 
 next2:
-sb  $zero, ($a1)          # *str = 0 (end of string marker)
+sb  $zero, ($a1)          # *str = 0 (marcador de fim de string)
 
-lw   $t0, ($sp)           # restore $t0 value before function was called
-addi $sp, $sp, 4          # restore stack
-jr  $ra                   # jump to caller
+lw   $t0, ($sp)           # restaura valor $t0 antes da função ser chamada
+addi $sp, $sp, 4          # restaura pilha
+jr  $ra                   # pule para o chamador
 
 exitInt:
     li $v0, 10   
-    syscall       
+    syscall
