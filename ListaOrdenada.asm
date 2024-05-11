@@ -13,7 +13,7 @@ buffer: .space 500
         .align 2
 lista_numeros: .space 400
 n: .word 100
-str:   .space 128         # bytes para a versão string do número
+str:   .space 5       # bytes para a versão string do número
 comma: .asciiz ","
 newline: .asciiz "\n"
 .text
@@ -112,17 +112,13 @@ end_outer_loop:
     lw $a1, 0($sp)      # Restaurar $a1 da pilha
     addi $sp, $sp, 8    # Liberar espaço na pilha
     jr $ra              # Retornar ao endereço de retorno
-
-
+ 
 out:
+
+
 
     la $t0, lista_numeros                           # Carrega o endereço do array em $t0
     lw $t1, n                                       # Carrega o tamanho do array em $t1
-    la $a0, Fout                                    # Carrega o endereço do arquivo de saída em $a0
-    li $a1, 1                                       # Abre para escrita
-    li $v0, 13                                      # Chamada de sistema para abrir arquivo
-    syscall
-    move $s6, $v0                                   # Salva o descritor do arquivo
 
 loop:
     beqz $t1, end_loop                              # Se $t1 == 0, encerra o loop
@@ -130,99 +126,101 @@ loop:
     la $a1, str                                     # Carrega o endereço da string em $a1
     jal int2str                                     # Chama a função int2str
 
-    # Escreve a string no arquivo
-    move $a0, $s6                                   # Descritor do arquivo
-    la $a1, str                                     # Endereço da string
-    li $a2, 128                                     # Tamanho da string
-    li $v0, 15                                      # Chamada de sistema para escrever no arquivo
-    syscall
-
-    # Escreve uma vírgula no arquivo, exceto para o último elemento
     addi $t0, $t0, 4                                # Move para o próximo elemento do array
     addi $t1, $t1, -1                               # Decrementa o tamanho
-    beqz $t1, end_write                             # Se $t1 == 0, pula para end_write
-    move $a0, $s6                                   # Descritor do arquivo
-    la $a1, comma                                   # Endereço da vírgula
-    li $a2, 1                                       # Tamanho da vírgula
-    li $v0, 15                                      # Chamada de sistema para escrever no arquivo
-    syscall
-
     j loop                                          # Volta para o início do loop
 
-end_write:
-    # Escreve uma nova linha no arquivo
-    move $a0, $s6                                   # Descritor do arquivo
-    la $a1, newline                                 # Endereço da nova linha
-    li $a2, 1                                       # Tamanho da nova linha
-    li $v0, 15                                      # Chamada de sistema para escrever no arquivo
-    syscall
-
 end_loop:
-    # Fecha o arquivo
-    move $a0, $s6                                   # Descritor do arquivo
-    li $v0, 16                                      # Chamada de sistema para fechar o arquivo
-    syscall
-
-    j exitInt       
+    # Continua com o resto do código
 
 # Função para converter um número inteiro em uma string
 int2str:
-addi $sp, $sp, -4         # para evitar problemas, salve os registradores $t- usados neste procedimento na pilha
-sw   $t0, ($sp)           # para que os valores não mudem no chamador. Usamos apenas $t0 aqui, então salve isso.
-bltz $a0, neg_num         # o número é < 0 ?
-j    next0                # senão, vá para 'next0'
+    addi $sp, $sp, -4         # para evitar problemas, salve os registradores $t- usados neste procedimento na pilha
+    sw   $t0, ($sp)           # para que os valores não mudem no chamador. Usamos apenas $t0 aqui, então salve isso.
+    bltz $a0, neg_num         # o número é < 0 ?
+    j    next0                # senão, vá para 'next0'
 
 neg_num:                  # corpo de "se num < 0:"
-li   $t0, '-'
-sb   $t0, ($a1)           # *str = ASCII de '-' 
-addi $a1, $a1, 1          # str++
-li   $t0, -1
-mul  $a0, $a0, $t0        # num *= -1
+    li   $t0, '-'
+    sb   $t0, ($a1)           # *str = ASCII de '-' 
+    addi $a1, $a1, 1          # str++
+    li   $t0, -1
+    mul  $a0, $a0, $t0        # num *= -1
 
 next0:
-li   $t0, -1
-addi $sp, $sp, -4         # faça espaço na pilha
-sw   $t0, ($sp)           # e salve -1 (marcador de fim de pilha) na pilha do MIPS
+    li   $t0, -1
+    addi $sp, $sp, -4         # faça espaço na pilha
+    sw   $t0, ($sp)           # e salve -1 (marcador de fim de pilha) na pilha do MIPS
 
 push_digits:
-blez $a0, next1           # num < 0? Se sim, encerre o loop (vá para
-li   $t0, 10              # caso contrário, corpo do loop while aqui
-div  $a0, $t0             # faça num / 10. LO = Quociente, HI = resto
-mfhi $t0                  # $t0 = num % 10
-mflo $a0                  # num = num // 10  
-addi $sp, $sp, -4         # faça espaço na pilha
-sw   $t0, ($sp)           # armazene num % 10 calculado acima na pilha
-j    push_digits          # e loop
+    blez $a0, next1           # num < 0? Se sim, encerra o loop (vá para
+    li   $t0, 10              # caso contrário, corpo do loop while aqui
+    div  $a0, $t0             # faça num / 10. LO = Quociente, HI = resto
+    mfhi $t0                  # $t0 = num % 10
+    mflo $a0                  # num = num // 10  
+    addi $sp, $sp, -4         # faça espaço na pilha
+    sw   $t0, ($sp)           # armazene num % 10 calculado acima na pilha
+    j    push_digits          # e loop
 
 next1:
-lw   $t0, ($sp)           # $t0 = retira "dígito" da pilha MIPS
-addi $sp, $sp, 4          # e 'restaura' pilha
+    lw   $t0, ($sp)           # $t0 = retira "dígito" da pilha MIPS
+    addi $sp, $sp, 4          # e 'restaura' pilha
 
-bltz $t0, neg_digit       # se dígito <= 0, vá para neg_digit (ou seja, num = 0)
-j    pop_digits           # caso contrário, vá para popping em um loop
+bltz $t0, pop_digits      # se dígito <= 0, vá para pop_digits (ou seja, num = 0)
 
 neg_digit:
-li   $t0, '0'
-sb   $t0, ($a1)           # *str = ASCII de '0'
-addi $a1, $a1, 1          # str++
-j    next2                # pule para next2
+    li   $t0, '0'
+    sb   $t0, ($a1)           # *str = ASCII de '0'
+    addi $a1, $a1, 1          # str++
+    j    next2                # pule para next2
 
 pop_digits:
-bltz $t0, next2           # se dígito <= 0 vá para next2 (fim do loop)
-addi $t0, $t0, '0'        # caso contrário, $t0 = ASCII do dígito
-sb   $t0, ($a1)           # *str = ASCII do dígito
-addi $a1, $a1, 1          # str++
-lw   $t0, ($sp)           # dígito = retira da pilha MIPS
-addi $sp, $sp, 4          # restaura pilha
-j    pop_digits           # e loop
+    bltz $t0, next2           # se dígito <= 0 vá para next2 (fim do loop)
+    addi $t0, $t0, '0'        # caso contrário, $t0 = ASCII do dígito
+    sb   $t0, ($a1)           # *str = ASCII do dígito
+    addi $a1, $a1, 1          # str++
+    lw   $t0, ($sp)           # dígito = retira da pilha MIPS
+    addi $sp, $sp, 4          # restaura pilha
+    j    pop_digits           # e loop
 
 next2:
-sb  $zero, ($a1)          # *str = 0 (marcador de fim de string)
+    sb  $zero, ($a1)          # *str = 0 (marcador de fim de string)
 
-lw   $t0, ($sp)           # restaura valor $t0 antes da função ser chamada
-addi $sp, $sp, 4          # restaura pilha
-jr  $ra                   # pule para o chamador
+    # Calcular o tamanho da string
+    la $t0, str
+    sub $v0, $a1, $t0
 
-exitInt:
-    li $v0, 10   
-    syscall
+    lw   $t0, ($sp)           # restaura valor $t0 antes da função ser chamada
+    addi $sp, $sp, 4          # restaura pilha
+    jr  $ra                   # pule para o chamador
+
+
+ la $t0, lista_numeros                # Carrega o endereço base do array
+    lw $t1, n                 # Carrega o tamanho do array
+
+ # Abre o arquivo para escrita
+    la $a0, Fout                 # Endereço do nome do arquivo
+    li $a1, 1                    # Modo de abertura (1 para escrita)
+    li $v0, 13                   # Código do sistema para abrir um arquivo
+    syscall                      # Abre o arquivo
+    move $s6, $v0                # Salva o descritor do arquivo
+
+loopWrite:
+    lw $a1, 0($t0)               # Carrega o valor do array no $a1
+    la $t2, str                  # Carrega o endereço da string em $t2
+    jal int2str                  # Chama a função int2str
+    move $t3, $v0                # Salva o tamanho da string
+
+    move $a0, $s6                # Descritor do arquivo
+    move $a1, $t2                # Dados a serem escritos
+    move $a2, $t3                # Tamanho dos dados a serem escritos
+    li $v0, 15                   # Código do sistema para escrever em um arquivo
+    syscall                      # Escreve no arquivo
+
+exitWrite:
+    move $a0, $s6                # Descritor do arquivo
+    li $v0, 16                   # Código do sistema para fechar um arquivo
+    syscall                      # Fecha o arquivo
+
+    li $v0, 10                   # Código do sistema para sair
+    syscall                      # Finaliza o programa
