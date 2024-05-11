@@ -113,7 +113,7 @@ end_outer_loop:
     addi $sp, $sp, 8    # Liberar espaço na pilha
     jr $ra              # Retornar ao endereço de retorno
 
-# Escrever a lista ordenada no arquivo "lista_ordenada.txt"
+
 out:
 
     la $t0, lista_numeros                           # Carrega o endereço do array em $t0
